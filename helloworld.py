@@ -1,5 +1,4 @@
 #learning python
-
 str = "hello world"
 
 print(str[3:5], str[3:], str*2, str + "Addition")
@@ -115,6 +114,7 @@ strategies['bestStrategy'] = strategy2
 print("the best strategy has changed: %s" % strategies['bestStrategy']())
 
 class Plane:
+    # Static though
     publicMember = 40
     __privateMember = 5
 
