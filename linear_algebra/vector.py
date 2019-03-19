@@ -1,9 +1,14 @@
 import numbers
 import math
+from linear_algebra.system import System
 
+
+# TODO: Use DI here to create a singleton system object
 class Vector(object):
-    def __init__(self, coordinates, ):
+
+    def __init__(self, coordinates, system = System()):
         self.round = 3
+        self.system = system
         try:
             if not coordinates:
                 raise ValueError
@@ -17,6 +22,10 @@ class Vector(object):
 
     def __str__(self):
         return 'Vector {}'.format([round(x, self.round) for x in self.coordinates])
+
+    def __getitem__(self, arg):
+        self.__check_number(arg)
+        return self.coordinates[arg]
 
     def __eq__(self, v):
         self.coordinates == v.coordinates
@@ -105,30 +114,58 @@ class Vector(object):
 
     def component_to(self, v):
         return Vector.component(self, v)
-    
+
+    # [x, y, z]
     @staticmethod
     def cross_between(v1, v2):
-        pass
+        Vector.__is_three_dimensional_vector(v1)
+        Vector.__is_three_dimensional_vector(v2)
 
-    def cross_to(self, v):
-        self.__check_vector(v)
+        x1, y1, z1 = v1.coordinates
+        x2, y2, z2 = v2.coordinates
+
+        cross_x = y1 * z2 - y2 * z1
+        cross_y = -1 * (x1 * z2 - x2 * z1)
+        cross_z = x1 * y2 - x2 * y1
+
+        return Vector([cross_x, cross_y, cross_z])
+
+    def cross_with(self, v):
         return Vector.cross_between(self, v)
 
+    def area_parallelogram_with(self, v):
+        self.__check_vector(v)
+        return self.cross_with(v).magnitude()
+
+    def area_triangle_with(self, v):
+        self.__check_vector(v)
+        return self.area_parallelogram_with(v) / 2
+
     def __check_vector(self, v):
-        if not Vector.__isVector(v): raise TypeError
+        if not Vector.__is_vector(v): raise TypeError
         if not self.dimension == v.dimension: raise ValueError
 
     @staticmethod
-    def __check_number(value):
-        if not Vector.__isNumber(value): raise TypeError
+    def __check_three_dimensional_vector(v):
+        if not Vector.__is_three_dimensional_vector(v): ValueError
+
 
     @staticmethod
-    def __isNumber(value):
+    def __check_number(value):
+        if not Vector.__is_number(value): raise TypeError
+
+    @staticmethod
+    def __is_number(value):
         return isinstance(value, numbers.Number)
 
     @staticmethod
-    def __isVector(v):
+    def __is_vector(v):
         return isinstance(v, Vector)
+
+    @staticmethod
+    def __is_three_dimensional_vector(v):
+        if not isinstance(v, Vector): raise TypeError
+        return (len(v.coordinates) == 3)
 
 
 
