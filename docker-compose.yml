@@ -1,0 +1,8 @@
+version: "3"
+services:
+  ml-hello-world:
+    build:
+      context: ./
+      dockerfile: Dockerfile
+    volumes:
+      - ./app:/app

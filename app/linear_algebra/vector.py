@@ -1,6 +1,6 @@
 import numbers
 import math
-from linear_algebra.system import System
+from .system import System
 
 
 # TODO: Use DI here to create a singleton system object
