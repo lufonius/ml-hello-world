@@ -1,5 +1,5 @@
 # main module (the one which is to run) always have to use absolute paths
-from app.linear_algebra.vector import Vector
+from package.linear_algebra.vector import Vector
 
 # adding and substracting
 print(Vector([8.218, -9.341]) + Vector([-1.129, 2.111]))
