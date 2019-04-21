@@ -25,12 +25,8 @@ class CropLayer(object):
     def forward(self, inputs):
         return [inputs[0][:,:,self.ystart:self.yend,self.xstart:self.xend]]
 
+
 class EdgeDetector:
-    prototxt = ""
-    caffemodel = ""
-    width = 0
-    height = 0
-    net = None
 
     def __init__(
             self,
@@ -43,8 +39,8 @@ class EdgeDetector:
         self.caffemodel = caffemodel
         self.height = height
         self.width = width
-        cv.dnn_registerLayer('Crop', CropLayer)
         self.net = cv.dnn.readNet(self.prototxt, self.caffemodel)
+        cv.dnn_registerLayer('Crop', CropLayer)
 
     def detect_edges(self, filepath):
         cap = cv.imread(filepath)
@@ -55,9 +51,8 @@ class EdgeDetector:
         self.net.setInput(inp)
         out = self.net.forward()
         out = out[0, 0]
-        out = cv.resize(out, (cap.shape[1], cap.shape[0]))
+        # out = cv.resize(out, (cap.shape[1], cap.shape[0]))
         out = 255 * out
         out = out.astype(np.uint8)
-        #out=cv.cvtColor(out,cv.COLOR_GRAY2BGR)
 
         return out
