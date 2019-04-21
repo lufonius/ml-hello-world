@@ -2,6 +2,7 @@ import math
 import numpy
 from package.utils.coordinate_space import CoordinateSpace
 from package.utils.coordinate_space_converter import CoordinateSpaceConverter
+from package.utils.memoize import Memoize
 
 class Hough:
     # condition for voting
@@ -9,27 +10,22 @@ class Hough:
     # the range for the angle axis. those are constants!
     angle_range = {"start": 0, "end": 360, "step": 3}
 
-    cached_cos_angle = {}
-    cached_sin_angle = {}
-    # p = x * cos(angle) + y * sin(angle) => see normalization
+    # later on, when we provide this as a service, we could
+    # keep some results (till 300x300 image) in the memory
+    # to make it faster
+    # but memoizing cos and sin is good for now
+    # p = x * cos(angle) + y * sin(angle) => see hesse normal form
     def p_fn(self, angle, x, y):
-        cos_angle = 0
-        # lets look up memoization in python
-        if (angle in self.cached_cos_angle):
-            cos_angle = self.cached_cos_angle[angle]
-        else:
-            cos_angle = math.cos(math.radians(angle))
-            self.cached_cos_angle[angle] = cos_angle
 
-        sin_angle = 0
-        # lets look up memoization in python
-        if (angle in self.cached_sin_angle):
-            sin_angle = self.cached_sin_angle[angle]
-        else:
-            sin_angle = math.sin(math.radians(angle))
-            self.cached_sin_angle[angle] = sin_angle
+        @Memoize # omg i love python!
+        def cos_angle(angle):
+            return math.cos(math.radians(angle))
 
-        result = x * cos_angle + y * sin_angle
+        @Memoize
+        def sin_angle(angle):
+            return math.sin(math.radians(angle))
+
+        result = x * cos_angle(angle) + y * sin_angle(angle)
         return result
 
     def create_empty_parameter_matrice(self, image):
@@ -68,13 +64,16 @@ class Hough:
             # here we have to convert the points
             new_x = x - (image_width / 2)
             new_y = y - (image_height / 2)
-            grayscale = image[x, y] if image.shape.__len__() < 3 else image[x, y][0]
+            grayscale = image[x, y] if image.shape.count() < 3 else image[x, y][0]
             if (grayscale > self.grayscale_bias):
                 for angle_index in angle_range_array_index:
                     # now we have a x,y point and have to calculate each
                     # each value for each angle step
-                    p = p_axis_size + math.ceil(self.p_fn(angle_range_array[angle_index], new_x, new_y))
-                    p >>= 1
+                    p = math.ceil((p_axis_size / 2 - 1) + self.p_fn(angle_range_array[angle_index], new_x, new_y))
+                    # there's another solution
+                    # p = p_axis_size + self.p_fn(...)
+                    # p >>= 1
+                    # but idk what its about
                     # we plot them into the parameter matrice
                     parameter_matrice[angle_index, p] += 1
 

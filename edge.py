@@ -10,7 +10,7 @@ from package.utils.coordinate_space import CoordinateSpace
 kWinName = 'Holistically-Nested_Edge_Detection'
 cv.namedWindow(kWinName, cv.WINDOW_AUTOSIZE)
 
-filepath = "outside.jpg"
+filepath = "recipe.jpg"
 
 edge_detector = EdgeDetector(
     200,
@@ -24,7 +24,7 @@ hough = Hough()
 
 transformed = hough.transform(out)
 transformed = CoordinateSpaceConverter.transform(transformed, CoordinateSpace.IMAGE)
-
-# con=np.concatenate((frame,out),axis=1)
+transformed = cv.resize(transformed, (transformed.shape[0] * 2, transformed.shape[1] * 2))
+transformed = numpy.swapaxes(transformed, 0, 1)
 cv.imshow(kWinName, transformed)
 cv.waitKey()
