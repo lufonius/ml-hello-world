@@ -10,22 +10,23 @@ class Hough:
     # the range for the angle axis. those are constants!
     angle_range = {"start": 0, "end": 360, "step": 3}
 
+    # setting as methods, inside the function call doesn't make sense
+    # since the memoized params are always empty
+    @Memoize  # omg i love python!
+    def _cos_angle(self, angle):
+        return math.cos(math.radians(angle))
+
+    @Memoize
+    def _sin_angle(self, angle):
+        return math.sin(math.radians(angle))
+
     # later on, when we provide this as a service, we could
     # keep some results (till 300x300 image) in the memory
     # to make it faster
     # but memoizing cos and sin is good for now
     # p = x * cos(angle) + y * sin(angle) => see hesse normal form
     def p_fn(self, angle, x, y):
-
-        @Memoize # omg i love python!
-        def cos_angle(angle):
-            return math.cos(math.radians(angle))
-
-        @Memoize
-        def sin_angle(angle):
-            return math.sin(math.radians(angle))
-
-        result = x * cos_angle(angle) + y * sin_angle(angle)
+        result = x * self._cos_angle(angle) + y * self._sin_angle(angle)
         return result
 
     def create_empty_parameter_matrice(self, image):
