@@ -5,6 +5,8 @@ from package.linear_algebra.point import Point
 line1 = Line(Vector([1, 5]), 6)
 line2 = Line(Vector([2, 6]), 9)
 
+line1.normal_vector = Vector([2, 5])
+
 intersection = line1.get_intersection_with(line2)
 
 print(intersection)
