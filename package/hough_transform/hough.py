@@ -1,8 +1,13 @@
 import math
 import numpy
+import cv2 as cv
+import typing
+from sklearn.cluster import DBSCAN
 from package.utils.coordinate_space import CoordinateSpace
 from package.utils.coordinate_space_converter import CoordinateSpaceConverter
 from package.utils.memoize import Memoize
+from package.linear_algebra.line import Line
+from package.linear_algebra.vector import Vector
 
 class Hough:
     # condition for voting
@@ -65,7 +70,7 @@ class Hough:
             # here we have to convert the points
             new_x = x - (image_width / 2)
             new_y = y - (image_height / 2)
-            grayscale = image[x, y] if image.shape.count() < 3 else image[x, y][0]
+            grayscale = image[x, y] if len(image.shape) < 3 else image[x, y][0]
             if (grayscale > self.grayscale_bias):
                 for angle_index in angle_range_array_index:
                     # now we have a x,y point and have to calculate each
@@ -76,6 +81,8 @@ class Hough:
                     # p >>= 1
                     # but idk what its about
                     # we plot them into the parameter matrice
+                    # BIG NOTE: If you're going to calculate with the angle, you have to multiply the index
+                    # times the step
                     parameter_matrice[angle_index, p] += 1
 
         return self._convert_to_grayscale_parameter_matrice(parameter_matrice)
@@ -112,9 +119,58 @@ class Hough:
     def _get_image_width(self, image):
         return image.shape[0]
 
+    def get_local_maximas(self, grayscale_parameter_matrice):
+        clusters = DBSCAN(0.5).fit(grayscale_parameter_matrice)
+        maximas = numpy.empty((0, 2))
+        for (x, y) in numpy.ndindex(grayscale_parameter_matrice.shape[:2]):
+            if grayscale_parameter_matrice[x, y] > 100:
+                maximas = numpy.append(maximas, numpy.array([[x, y]]), axis=0)
 
+        return maximas.astype(numpy.uint8)
 
+    # TODO: improve to always get maximas ... now only values greater than
+    # 255 are being recognised
+    def mark_maximas(self, grayscale_parameter_matrice, maximas):
+        rgb_parameter_matrice = cv.cvtColor(grayscale_parameter_matrice, cv.COLOR_GRAY2BGR)
+        for i in numpy.ndindex(maximas.shape[:1]):
+            rgb_parameter_matrice[maximas[i[0], 0], maximas[i[0], 1]] = [125, 0, 190]
 
+        return rgb_parameter_matrice
 
+    # TODO: move this into another class ... it's just from hesse normal form to the other one
+    def to_lines(self, maximas) -> numpy.ndarray:
+        lines = numpy.empty((0, ))
+        for (i) in numpy.ndindex(maximas.shape[:1]):
+            p = maximas[i[0], 1] # magnitude of the vector
+            angle = maximas[i[0], 0] * self.angle_range["step"] # direction
+            normal_vector = Vector.from_magnitude_angle(p, angle)
+            x_intercept = p / math.cos(math.radians(angle))
+            # now we can calculate the constant term k
+            # since Ax + By = k
+            # A = normal_vector[0]
+            # x = x_intercept
+            # y = 0
+            # so Ax = k
+            constant_term = normal_vector[0] * x_intercept
+            line = Line(normal_vector, constant_term)
+            lines = numpy.append(lines, numpy.array([line]), axis = 0)
+
+        return lines
+
+    # TODO: move to another class
+    def draw_onto_image(self, lines: numpy.ndarray, image: numpy.ndarray) -> numpy.ndarray:
+        image_math_space = CoordinateSpaceConverter.transform(image, CoordinateSpace.MATH)
+        image_width = image_math_space.shape[0]
+        image_height = image_math_space.shape[1]
+
+        for (i) in numpy.ndindex(lines.shape[:1]):
+            for x in range(0, image_width -1, 1):
+                new_x = math.floor(x - (image_width / 2))
+                new_y = math.floor(lines[i[0]].get_y(new_x))
+
+                if -image_height < new_y < image_height:
+                    image_math_space[new_x, new_y] = [120, 0, 190]
+
+        return CoordinateSpaceConverter.transform(image_math_space, CoordinateSpace.IMAGE)
 
 

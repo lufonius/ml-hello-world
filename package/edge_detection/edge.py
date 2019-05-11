@@ -43,11 +43,7 @@ class EdgeDetector:
         cv.dnn_registerLayer('Crop', CropLayer)
 
     def detect_edges(self, filepath):
-        cap = cv.imread(filepath)
-        inp = cv.dnn.blobFromImage(cap, scalefactor=1.0, size=(self.width, self.height),
-                                       mean=(104.00698793, 116.66876762, 122.67891434),
-                                       swapRB=False, crop=False)
-
+        inp = self.prepare_blob(filepath)
         self.net.setInput(inp)
         out = self.net.forward()
         out = out[0, 0]
@@ -56,3 +52,9 @@ class EdgeDetector:
         out = out.astype(np.uint8)
 
         return out
+
+    def prepare_blob(self, filepath):
+        cap = cv.imread(filepath)
+        return cv.dnn.blobFromImage(cap, scalefactor=1.0, size=(self.width, self.height),
+                                   mean=(104.00698793, 116.66876762, 122.67891434),
+                                   swapRB=False, crop=False)
