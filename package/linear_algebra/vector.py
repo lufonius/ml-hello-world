@@ -135,6 +135,13 @@ class Vector(Point):
         self.__check_vector_dimension(v)
         return self.area_parallelogram_with(v) / 2
 
+    @staticmethod
+    def from_magnitude_angle(magnitude: float, angle: float) -> Vector:
+        y = math.sin(math.radians(angle)) * magnitude
+        x = math.cos(math.radians(angle)) * magnitude
+
+        return Vector([x, y])
+
     def __check_vector_dimension(self, v: Vector) -> None:
         if not self.dimension == v.dimension: raise ValueError
 
