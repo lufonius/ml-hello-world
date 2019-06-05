@@ -14,10 +14,8 @@ class Intersect:
 
     def intersection(
             self,
-            direction_vector1,
             normal_vector1,
             k1,
-            direction_vector2,
             normal_vector2,
             k2
     ): pass

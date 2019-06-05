@@ -77,7 +77,7 @@ class Vector(Point):
     def angle_to(self, v: Vector, degree: bool = False) -> float:
         return Vector.angle_between(self, v, degree)
 
-    def is_orthogonal_to(self, other: Vector, tolerance: float = 1e-10):
+    def is_orthogonal_to(self, other: Vector, tolerance: float = 1e-10) -> bool:
         self.__check_vector_dimension(other)
         return self.dot_with(other) < tolerance
 
