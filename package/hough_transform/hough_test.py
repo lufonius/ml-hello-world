@@ -2,8 +2,6 @@ import unittest
 import numpy
 import math
 from .hough import Hough
-from package.utils.coordinate_space import CoordinateSpace
-
 
 class HoughTest(unittest.TestCase):
     hough = Hough()

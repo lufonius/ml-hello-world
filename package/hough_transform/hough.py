@@ -6,8 +6,9 @@ from sklearn.cluster import DBSCAN
 from package.utils.coordinate_space import CoordinateSpace
 from package.utils.coordinate_space_converter import CoordinateSpaceConverter
 from package.utils.memoize import Memoize
-from package.linear_algebra.line import Line
+from package.linear_algebra.line_copy import Line
 from package.linear_algebra.vector import Vector
+from package.hough_transform.cells.root_cell import RootCell
 
 class Hough:
     # condition for voting
@@ -119,14 +120,40 @@ class Hough:
     def _get_image_width(self, image):
         return image.shape[0]
 
-    def get_local_maximas(self, grayscale_parameter_matrice):
-        clusters = DBSCAN(0.5).fit(grayscale_parameter_matrice)
-        maximas = numpy.empty((0, 2))
-        for (x, y) in numpy.ndindex(grayscale_parameter_matrice.shape[:2]):
-            if grayscale_parameter_matrice[x, y] > 100:
-                maximas = numpy.append(maximas, numpy.array([[x, y]]), axis=0)
+    def get_local_maximas(self, grayscale_parameter_matrice: numpy.ndarray):
+        flat_matrice = grayscale_parameter_matrice.flatten()
+        unique_matrice = numpy.unique(flat_matrice)
+        median = unique_matrice[unique_matrice.shape[0] / 2]
+        shape = grayscale_parameter_matrice.shape[:2]
+        acc = {}
+        start = {}
+        for (x, y) in numpy.ndindex(shape):
+            if(x < 1 or y < 1 or x > shape[0] -1 or y > shape[1] - 1):
+                continue
+            value = grayscale_parameter_matrice[x, y]
+            cell = RootCell(x, y, value)
 
-        return maximas.astype(numpy.uint8)
+            # we add all of the neighbours around the cells to the cells
+            neighbours = grayscale_parameter_matrice[x - 1:x + 1, y - 1:y + 1]
+            for (x1, y1) in numpy.ndindex(neighbours.shape):
+                if x1 == 1 and y1 == 1:
+                    continue
+                actual_x = x + x1
+                actual_y = y + y1
+                neighbour_value = grayscale_parameter_matrice[actual_x, actual_y]
+                cell.children = cell.children.append(RootCell(actual_x, actual_y, neighbour_value))
+
+            acc[hash(cell)] = cell
+            if (value > median):
+                start[hash(cell)] = cell
+
+        # now we iterate through the start cells and get it's neighbours
+        # when one of the neighbours has a bigger value than the median
+        # or the mean of all neighbours is migger than the median
+        # we do the same within a bigger range
+        # once the condition above doesn't hit, we return all of the neighbours
+        # of the previous run, and remove items from the start dict which we have visited
+        # to prevent overlapping
 
     # TODO: improve to always get maximas ... now only values greater than
     # 255 are being recognised
