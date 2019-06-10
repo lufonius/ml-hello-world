@@ -1,13 +1,13 @@
 from __future__ import annotations
-from .position import Position
 import typing
 
 
 class Cell:
-    def __init__(self, x: int, y: int, value: int, parent: Cell = None):
+    value = None
+
+    def __init__(self, x: int, y: int, parent: Cell = None):
         self._x = x
         self._y = y
-        self._value = value
 
         self._parent = parent
 
@@ -17,7 +17,7 @@ class Cell:
         self.children = []
 
     def __hash__(self):
-        return hash((self._x, self._y, self._value))
+        return hash((self._x, self._y))
 
     def __eq__(self, other: Cell):
         return hash(self) == hash(other)
@@ -29,10 +29,6 @@ class Cell:
     @property
     def y(self):
         return self._y
-
-    @property
-    def value(self):
-        return self._value
 
     @property
     def level(self):

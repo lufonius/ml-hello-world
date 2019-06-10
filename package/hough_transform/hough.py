@@ -2,7 +2,6 @@ import math
 import numpy
 import cv2 as cv
 import typing
-from sklearn.cluster import DBSCAN
 from package.utils.coordinate_space import CoordinateSpace
 from package.utils.coordinate_space_converter import CoordinateSpaceConverter
 from package.utils.memoize import Memoize
@@ -59,8 +58,8 @@ class Hough:
         parameter_matrice = self.create_empty_parameter_matrice(image)
 
         p_axis_size = self._get_p_axis_size(image)
-        image_height = self._get_image_height(image)
-        image_width = self._get_image_width(image)
+        image_height = image.shape[1]
+        image_width = image.shape[0]
 
         angle_range_array = self._get_angle_range_array()
         angle_range_array_index = range(angle_range_array.shape[0])
@@ -76,7 +75,7 @@ class Hough:
                 for angle_index in angle_range_array_index:
                     # now we have a x,y point and have to calculate each
                     # each value for each angle step
-                    p = math.ceil((p_axis_size / 2 - 1) + self.p_fn(angle_range_array[angle_index], new_x, new_y))
+                    p = math.floor(self.p_fn(angle_range_array[angle_index], new_x, new_y))
                     # there's another solution
                     # p = p_axis_size + self.p_fn(...)
                     # p >>= 1
@@ -112,59 +111,78 @@ class Hough:
 
     def _get_p_axis_size(self, image):
         # image diagonal is the p axis range
-        return math.ceil(math.sqrt(image.shape[0]**2 + image.shape[1]**2))
-
-    def _get_image_height(self, image):
-        return image.shape[1]
-
-    def _get_image_width(self, image):
-        return image.shape[0]
+        return math.ceil(math.sqrt((image.shape[0]/2)**2 + (image.shape[1]/2)**2))
 
     def get_local_maximas(self, grayscale_parameter_matrice: numpy.ndarray):
+        grayscale_parameter_matrice_pad = numpy.pad(grayscale_parameter_matrice, 1, mode='constant', constant_values=0)
         flat_matrice = grayscale_parameter_matrice.flatten()
-        unique_matrice = numpy.unique(flat_matrice)
-        median = unique_matrice[unique_matrice.shape[0] / 2]
-        shape = grayscale_parameter_matrice.shape[:2]
+        unique_matrice = numpy.sort(numpy.unique(flat_matrice))
+        middle_index = int(unique_matrice.shape[0] / 2)
+        median = unique_matrice[middle_index]
+        shape = grayscale_parameter_matrice_pad.shape[:2]
         acc = {}
-        start = {}
+        local_maximas = {}
         for (x, y) in numpy.ndindex(shape):
-            if(x < 1 or y < 1 or x > shape[0] -1 or y > shape[1] - 1):
+            if(x < 1 or y < 1 or x > shape[0] -2 or y > shape[1] - 2):
                 continue
-            value = grayscale_parameter_matrice[x, y]
-            cell = RootCell(x, y, value)
+            value = grayscale_parameter_matrice_pad[x, y]
+            cell = RootCell(x, y)
+            is_local_maxima = True
+            if value != 255:
+                # we add all of the neighbours around the cells to the cells
+                neighbours = grayscale_parameter_matrice_pad[x - 1:x + 2, y - 1:y + 2]
+                for (x1, y1) in numpy.ndindex(neighbours.shape):
+                    if x1 == 1 and y1 == 1:
+                        continue
+                    actual_x = x + x1 - 1
+                    actual_y = y + y1 - 1
+                    neighbour_value = grayscale_parameter_matrice_pad[actual_x, actual_y]
+                    if neighbour_value > value or value < median:
+                        is_local_maxima = False
+                        break
 
-            # we add all of the neighbours around the cells to the cells
-            neighbours = grayscale_parameter_matrice[x - 1:x + 1, y - 1:y + 1]
-            for (x1, y1) in numpy.ndindex(neighbours.shape):
-                if x1 == 1 and y1 == 1:
-                    continue
-                actual_x = x + x1
-                actual_y = y + y1
-                neighbour_value = grayscale_parameter_matrice[actual_x, actual_y]
-                cell.children = cell.children.append(RootCell(actual_x, actual_y, neighbour_value))
+            acc[hash(cell)] = value
 
-            acc[hash(cell)] = cell
-            if (value > median):
-                start[hash(cell)] = cell
+            if is_local_maxima:
+                cell.value = value # we need the value for sorting
+                local_maximas[hash(cell)] = cell
 
-        # now we iterate through the start cells and get it's neighbours
-        # when one of the neighbours has a bigger value than the median
-        # or the mean of all neighbours is migger than the median
-        # we do the same within a bigger range
-        # once the condition above doesn't hit, we return all of the neighbours
-        # of the previous run, and remove items from the start dict which we have visited
-        # to prevent overlapping
+        # maybe we can solve this more elegant with a better data structure?
+        copy_local_maximas = list(local_maximas.copy().values())
+        # this line is important, it makes the maximas much more accurate
+        copy_local_maximas.sort(key=lambda cell: cell.value, reverse=True)
+
+        # what this basically does is to look around 10 cells and check if
+        # in this range is any local maxima
+        # if so, we remove it
+        # we could also increase the level until the local median
+        # is smaller than the median
+        # or just consider the variation in other ways
+        for maxima in copy_local_maximas:
+            if hash(maxima) in local_maximas:
+                level = 10
+                surrounding_cells = []
+                # TODO: implement boundary check to make this more efficient
+                maxima.get_cells_till_level(level, surrounding_cells)
+
+                keep_going = False
+                for cell in surrounding_cells:
+                    if hash(cell) in local_maximas:
+                        del local_maximas[hash(cell)]
+                        # keep_going = True
+
+        return numpy.array([[maxima.x, maxima.y] for maxima in local_maximas.values()])
 
     # TODO: improve to always get maximas ... now only values greater than
     # 255 are being recognised
     def mark_maximas(self, grayscale_parameter_matrice, maximas):
         rgb_parameter_matrice = cv.cvtColor(grayscale_parameter_matrice, cv.COLOR_GRAY2BGR)
         for i in numpy.ndindex(maximas.shape[:1]):
-            rgb_parameter_matrice[maximas[i[0], 0], maximas[i[0], 1]] = [125, 0, 190]
+            rgb_parameter_matrice[maximas[i[0], 0] - 1, maximas[i[0], 1] - 1] = [125, 0, 190]
 
         return rgb_parameter_matrice
 
-    # TODO: move this into another class ... it's just from hesse normal form to the other one
+    # TODO: move this into another class ... it's just from hesse normal form to the vector form
     def to_lines(self, maximas) -> numpy.ndarray:
         lines = numpy.empty((0, ))
         for (i) in numpy.ndindex(maximas.shape[:1]):
@@ -185,19 +203,23 @@ class Hough:
         return lines
 
     # TODO: move to another class
-    def draw_onto_image(self, lines: numpy.ndarray, image: numpy.ndarray) -> numpy.ndarray:
-        image_math_space = CoordinateSpaceConverter.transform(image, CoordinateSpace.MATH)
-        image_width = image_math_space.shape[0]
-        image_height = image_math_space.shape[1]
-
+    def draw_onto_image(self, lines: numpy.ndarray, image: numpy.ndarray):
+        width = image.shape[0] - 1
+        height = image.shape[1] - 1
         for (i) in numpy.ndindex(lines.shape[:1]):
-            for x in range(0, image_width -1, 1):
-                new_x = math.floor(x - (image_width / 2))
-                new_y = math.floor(lines[i[0]].get_y(new_x))
+            line = lines[i[0]]
+            line.constant_term += (width / 2) * line.normal_vector[0]
+            first_point = (0, int(line.get_y(0)))
+            last_point = (width, int(line.get_y(width)))
+            if int(line.normal_vector[1]) == 0:
+                continue
+                #first_point = (int(line.normal_vector[0]), 0)
+                #last_point = (int(line.normal_vector[0]), height)
+            clipped_line = cv.clipLine((0, 0, image.shape[0], image.shape[1]), first_point, last_point)
+            if clipped_line[0]:
+                cv.line(image, clipped_line[1], clipped_line[2], (120, 0, 190))
 
-                if -image_height < new_y < image_height:
-                    image_math_space[new_x, new_y] = [120, 0, 190]
+        return image
 
-        return CoordinateSpaceConverter.transform(image_math_space, CoordinateSpace.IMAGE)
 
 

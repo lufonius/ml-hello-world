@@ -11,8 +11,8 @@ from .right_cell import RightCell
 
 class RootCell(Cell):
 
-    def __init__(self, x: int, y: int, value: int):
-        super().__init__(x, y, value)
+    def __init__(self, x: int, y: int):
+        super().__init__(x, y)
 
     def grow_leafes(self):
         self.children = [
