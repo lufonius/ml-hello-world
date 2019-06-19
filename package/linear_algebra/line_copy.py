@@ -2,6 +2,7 @@ from __future__ import annotations
 from decimal import Decimal, getcontext
 from .vector import Vector
 from .point import Point
+from .utils import Utils
 from enum import Enum
 
 getcontext().prec = 30
@@ -15,12 +16,19 @@ class IntersectionType(Enum):
 
 class IntersectionResult:
 
-    def __init__(self, result: Point, type: IntersectionType):
+    def __init__(self, result: Point, angle: float, type: IntersectionType):
         self.result = result
         self.type = type
+        self.angle = angle
 
     def __str__(self):
         return 'Type: {0} Intersection point: {1}'.format(self.type, self.result.__str__())
+
+    def __getitem__(self, item):
+        if self.result is not None:
+            return self.result[item]
+        else:
+            return None
 
 class Line(object):
 
@@ -31,8 +39,10 @@ class Line(object):
 
     NO_NONZERO_ELTS_FOUND_MSG = 'No nonzero elements found'
 
-    def __init__(self, normal_vector: Vector = None, constant_term: float = None):
+    def __init__(self, normal_vector: Vector = None, constant_term: float = None, x_shift=0, y_shift=0):
         self.__dimension = 2
+        self.x_shift = x_shift
+        self.y_shift = y_shift
 
         if not normal_vector:
             all_zeros = [0]*self.__dimension
@@ -45,6 +55,15 @@ class Line(object):
 
         self.__set_basepoint()
         self.__set_direction_vector()
+
+    def __hash__(self):
+        return hash((
+            self.normal_vector[0],
+            self.normal_vector[1],
+            self.constant_term,
+            self.x_shift,
+            self.y_shift
+        ))
 
     @property
     def normal_vector(self) -> Vector:
@@ -134,7 +153,8 @@ class Line(object):
         return Vector.are_parallel(self.__normal_vector, line.__normal_vector)
 
     def get_y(self, x) -> float:
-        return (self.__constant_term - self.__normal_vector[0] * x) / self.__normal_vector[1];
+        # check if dominator is zero!
+        return (self.__constant_term - self.__normal_vector[0] * (x - self.x_shift) + (self.y_shift * self.__normal_vector[1])) / self.__normal_vector[1]
 
     def is_same_line(self, line: Line) -> bool:
         # we take vectors, as we need some vector calculation
@@ -148,8 +168,11 @@ class Line(object):
 
         return Vector.are_parallel(diff, self.__direction_vector)
 
-    def get_intersection_with(self, line: Line) -> Point:
+    def get_intersection_with(self, line: Line) -> IntersectionResult:
         return Line.get_intersection(self, line)
+
+    def get_intersection_in_area_with(self, line: Line, tl: Point, br: Point) -> IntersectionResult:
+        return Line.get_intersection_in_area(self, line, tl, br)
 
     @staticmethod
     def get_intersection(line1: Line, line2: Line) -> IntersectionResult:
@@ -157,10 +180,10 @@ class Line(object):
         # we should return if it intersects, if it's parallel or if
         # they're even the same line
         if line1.is_same_line(line2):
-            return IntersectionResult(None, IntersectionType.SAME)
+            return IntersectionResult(None, 0, IntersectionType.SAME)
 
         if line1.is_parallel_with(line2):
-            return IntersectionResult(None, IntersectionType.PARALLEL)
+            return IntersectionResult(None, 0, IntersectionType.PARALLEL)
 
         def x_y_dominator(a: float, b: float, c: float, d: float) -> float:
             return a * d - b * c
@@ -181,7 +204,24 @@ class Line(object):
         x = x_nominator(b, d, constant_term1, constant_term2) / x_y_dominator(a, b, c, d)
         y = y_nominator(a, c, constant_term1, constant_term2) / x_y_dominator(a, b, c, d)
 
-        return IntersectionResult(Point([x, y]), IntersectionType.INTERSECT)
+        angle = Vector.angle_between(line1.normal_vector, line2.normal_vector)
+
+        return IntersectionResult(Point([x, y]), angle, IntersectionType.INTERSECT)
+
+    @staticmethod
+    def get_intersection_in_area(line1: Line, line2: Line, tl: Point, br: Point) -> IntersectionResult:
+        intersection = Line.get_intersection(line1, line2)
+
+        if intersection.type != IntersectionType.INTERSECT:
+            return None
+
+        if not Utils.within_range(tl[0], br[0], intersection[0]):
+            return None
+
+        if not Utils.within_range(tl[1], br[1], intersection[1]):
+            return None
+
+        return intersection
 
     @staticmethod
     def first_nonzero_index(iterable):

@@ -13,7 +13,7 @@ class Point():
             if not coordinates:
                 raise ValueError
             else:
-                self.coordinates = tuple(coordinates)
+                self.coordinates = list(coordinates)
                 self.dimension = len(coordinates)
         except ValueError:
             raise ValueError('wrong value')
@@ -26,6 +26,16 @@ class Point():
     def __getitem__(self, arg):
         self.__check_number(arg)
         return self.coordinates[arg]
+
+    def __setitem__(self, key, value):
+        self.coordinates[key] = value
+
+    def __hash__(self):
+        return hash(self.coordinates)
+
+    def shift(self, x: int, y: int):
+        return Point([self.coordinates[0] + x, self.coordinates[1] + y])
+
 
     @staticmethod
     def __check_number(value):

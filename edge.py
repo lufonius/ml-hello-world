@@ -18,62 +18,38 @@ from package.utils.coordinate_space import CoordinateSpace
 kWinName = 'Holistically-Nested_Edge_Detection'
 cv.namedWindow(kWinName, cv.WINDOW_AUTOSIZE)
 
-filepath = "receipt2.jpg"
+filepath = "receipt3.jpg"
+original = cv.imread(filepath)
+
+height, width = original.shape[:2]
+new_width = 300
+new_height = int(height / (width / new_width))
+
+original = cv.resize(original, (new_width, new_height))
 
 edge_detector = EdgeDetector(
-    200,
-    200,
+    new_width,
+    new_height,
     "package/edge_detection/deploy.prototxt",
     "package/edge_detection/hed_pretrained_bsds.caffemodel"
 )
 out = edge_detector.detect_edges(filepath)
 
 hough = Hough()
-
 transformed = hough.transform(out)
 maximas = hough.get_local_maximas(transformed)
-transformed = hough.mark_maximas(transformed, maximas)
-#transformed = CoordinateSpaceConverter.transform(transformed, CoordinateSpace.IMAGE)
-#transformed = cv.resize(transformed, (transformed.shape[0] * 4, transformed.shape[1] * 4))
-#transformed = numpy.swapaxes(transformed, 0, 1)
-#[[  1  34]
- #[  1 107]
- #[ 61  36]
- #[ 61 109]
- #[120  33]
- #[120 106]]
+# transformed = hough.mark_maximas(transformed, maximas)
 lines = hough.to_lines(maximas)
-#lines = numpy.array([
-#    Line(normal_vector=Vector([64.5, 1]), constant_term=2205.95)
-#])
-original = cv.imread(filepath)
-original = cv.resize(original, (edge_detector.width, edge_detector.height))
-# test = numpy.zeros((200, 200, 3))
-original_with_lines = hough.draw_onto_image(lines, original)
-'''
-pff = Cluster.cluster(kp.astype(numpy.float), 2, 5, 1)
+'''lines = [
+    Line(Vector([31.98, 1.16]), 1024),
+    Line(Vector([-3.24, 92.94]), 8649),
+    Line(Vector([-25, 0.01]), 625),
+    Line(Vector([-6, -85.8]), 7396)
+]'''
+#original_with_lines = hough.draw_onto_image(np.array(lines), original)
+quadrilaterals = hough.get_quadrilaterals(original, lines)
+quadrilateral = hough.most_likely_quadrilateral(out, quadrilaterals)
+hough.draw_quadrilateral(original, quadrilateral)
 
-cols_count = range(0, kp.shape[1]-1)
-rows = np.arange(2, 5, 1)
-
-data = []
-# get each column as x-value
-for x in cols_count:
-    scatter = go.Scatter(
-        x = pff[:, x],
-        y = rows,
-        mode = 'markers',
-        name = 'markers',
-        connectgaps=False,
-        marker=dict(
-            size=10
-        )
-    )
-    data.append(scatter)
-
-layout = go.Layout(title="First Plot", xaxis={'title': 'x1'}, yaxis={'title': 'x2'})
-figure = go.Figure(data=data, layout=layout)
-plotly.offline.plot(figure, filename='scatterfromhough.html')
-'''
-cv.imshow(kWinName, original_with_lines)
+cv.imshow(kWinName, original)
 cv.waitKey()

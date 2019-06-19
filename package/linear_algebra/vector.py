@@ -67,9 +67,13 @@ class Vector(Point):
         # when the angle is zero, magnitude product might be a little smaller
         # because of precision of floats
         dot = v1.dot_with(v2)
-        if (dot - 1e-10) < magnitude_product < dot: magnitude_product = dot
+        if (dot - 1e-7) < magnitude_product < (dot + 1e-7): magnitude_product = dot
 
-        result = math.acos(dot / magnitude_product)
+        for_acos = dot / magnitude_product
+        for_acos = -1 if (for_acos - 1e-7) < -1 else for_acos
+        for_acos = 1 if (for_acos + 1e-7) > 1 else for_acos
+
+        result = math.acos(for_acos)
         # Or: acos of the dot product of both normalized vectors
         if degree: result = math.degrees(result)
         return result

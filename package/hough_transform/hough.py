@@ -5,15 +5,27 @@ import typing
 from package.utils.coordinate_space import CoordinateSpace
 from package.utils.coordinate_space_converter import CoordinateSpaceConverter
 from package.utils.memoize import Memoize
-from package.linear_algebra.line_copy import Line
+from package.linear_algebra.line_copy import *
 from package.linear_algebra.vector import Vector
 from package.hough_transform.cells.root_cell import RootCell
+from package.linear_algebra.section import Section
+import itertools
+import random
+
+# major flaws:
+# we need to use our brain a lot for
+# converting coordinate systems, since we use
+# different ones for hough calculation ((0, 0) in the middle)
+# different ones for images ((0, 0) starting on the top left)
+# and for getting the y value of a line ((0, 0) starting on the top bottom)
+# there has to be a better way!
+# split up in functions and write tests for it!
 
 class Hough:
     # condition for voting
-    grayscale_bias = 100
+    grayscale_bias = 75
     # the range for the angle axis. those are constants!
-    angle_range = {"start": 0, "end": 360, "step": 3}
+    angle_range = {"start": 0, "end": 360, "step": 1}
 
     # setting as methods, inside the function call doesn't make sense
     # since the memoized params are always empty
@@ -76,15 +88,12 @@ class Hough:
                     # now we have a x,y point and have to calculate each
                     # each value for each angle step
                     p = math.floor(self.p_fn(angle_range_array[angle_index], new_x, new_y))
-                    # there's another solution
-                    # p = p_axis_size + self.p_fn(...)
-                    # p >>= 1
-                    # but idk what its about
                     # we plot them into the parameter matrice
                     # BIG NOTE: If you're going to calculate with the angle, you have to multiply the index
                     # times the step
                     parameter_matrice[angle_index, p] += 1
 
+        # don't we loose a lot of information here???
         return self._convert_to_grayscale_parameter_matrice(parameter_matrice)
 
     def _convert_to_grayscale_parameter_matrice(self, parameter_matrice):
@@ -169,7 +178,7 @@ class Hough:
                 for cell in surrounding_cells:
                     if hash(cell) in local_maximas:
                         del local_maximas[hash(cell)]
-                        # keep_going = True
+                        # keep_going = True'''
 
         return numpy.array([[maxima.x, maxima.y] for maxima in local_maximas.values()])
 
@@ -178,13 +187,14 @@ class Hough:
     def mark_maximas(self, grayscale_parameter_matrice, maximas):
         rgb_parameter_matrice = cv.cvtColor(grayscale_parameter_matrice, cv.COLOR_GRAY2BGR)
         for i in numpy.ndindex(maximas.shape[:1]):
-            rgb_parameter_matrice[maximas[i[0], 0] - 1, maximas[i[0], 1] - 1] = [125, 0, 190]
+            color = rgb_parameter_matrice[maximas[i[0], 0] - 1, maximas[i[0], 1] - 1, 0]
+            rgb_parameter_matrice[maximas[i[0], 0] - 1, maximas[i[0], 1] - 1] = [125, 0, color]
 
         return rgb_parameter_matrice
 
     # TODO: move this into another class ... it's just from hesse normal form to the vector form
-    def to_lines(self, maximas) -> numpy.ndarray:
-        lines = numpy.empty((0, ))
+    def to_lines(self, maximas) -> typing.List[Line]:
+        lines = []
         for (i) in numpy.ndindex(maximas.shape[:1]):
             p = maximas[i[0], 1] # magnitude of the vector
             angle = maximas[i[0], 0] * self.angle_range["step"] # direction
@@ -198,28 +208,129 @@ class Hough:
             # so Ax = k
             constant_term = normal_vector[0] * x_intercept
             line = Line(normal_vector, constant_term)
-            lines = numpy.append(lines, numpy.array([line]), axis = 0)
+            lines.append(line)
 
         return lines
 
     # TODO: move to another class
     def draw_onto_image(self, lines: numpy.ndarray, image: numpy.ndarray):
-        width = image.shape[0] - 1
-        height = image.shape[1] - 1
+        width = image.shape[1]
+        height = image.shape[0]
         for (i) in numpy.ndindex(lines.shape[:1]):
             line = lines[i[0]]
-            line.constant_term += (width / 2) * line.normal_vector[0]
-            first_point = (0, int(line.get_y(0)))
-            last_point = (width, int(line.get_y(width)))
+            line.x_shift = width / 2
+            line.y_shift = height / 2
+            first_point = (0, int(height - line.get_y(0)))
+            last_point = (width, int(height - line.get_y(width)))
             if int(line.normal_vector[1]) == 0:
-                continue
-                #first_point = (int(line.normal_vector[0]), 0)
-                #last_point = (int(line.normal_vector[0]), height)
-            clipped_line = cv.clipLine((0, 0, image.shape[0], image.shape[1]), first_point, last_point)
+                #continue
+                first_point = (int(line.normal_vector[0] + line.x_shift), 0)
+                last_point = (int(line.normal_vector[0] + line.x_shift), height)
+            clipped_line = cv.clipLine((0, 0, image.shape[1], image.shape[0]), first_point, last_point)
             if clipped_line[0]:
                 cv.line(image, clipped_line[1], clipped_line[2], (120, 0, 190))
 
         return image
+
+    def get_quadrilaterals(self, image: numpy.array, lines: typing.List[Line]) -> typing.List:
+        tl = Point([-image.shape[1] / 2, image.shape[0] / 2])
+        br = Point([image.shape[1] / 2, -image.shape[0] / 2])
+        # lets review combinations in statistics
+        # and also how to do this algorithm by hand
+        line_combinations = itertools.combinations(lines, 4)
+
+        height = image.shape[0]
+        quadrilaterals = []
+        for combination in line_combinations:
+            lines_in_combination = {}
+
+            for line in combination:
+                lines_in_combination[hash(line)] = line
+
+            quadrilateral = []
+            is_quadrilateral = True
+            for line in combination:
+                # we check each line against the other line
+                # every line has to cross 2 other lines, otherwise it's not a quadrilateral
+                intersections_for_line = []
+                for other_line in lines_in_combination.values():
+                    intersection = line.get_intersection_in_area_with(other_line, tl, br)
+
+                    if intersection is not None:
+                        intersections_for_line.append(Point([intersection[0], intersection[1]]))
+
+                if len(intersections_for_line) != 2:
+                    is_quadrilateral = False
+                    break
+                else:
+                    quadrilateral.append(Section(intersections_for_line[0], intersections_for_line[1], line))
+
+            if is_quadrilateral:
+                quadrilaterals.append(quadrilateral)
+
+        return quadrilaterals
+
+    def most_likely_quadrilateral(self, edge_detected_image: numpy.ndarray, quadrilaterals: typing.List):
+        nd_quadrilaterals = numpy.array(quadrilaterals)
+        x_shift = int(edge_detected_image.shape[1] / 2)
+        y_shift = int(edge_detected_image.shape[0] / 2)
+        biggest_quadrilateral = {
+            "mean": 0,
+            "quadrilateral": None
+        }
+        for i in numpy.ndindex(nd_quadrilaterals.shape[:1]):
+            i = i[0]
+            quadrilateral = nd_quadrilaterals[i]
+            quadrilateral_sum = 0
+            quadrilateral_points_n = 0
+
+            for j in numpy.ndindex(quadrilateral.shape):
+                j = j[0]
+                section = quadrilateral[j]
+                start = list(int(x) for x in section.start.coordinates)
+                end = list(int(x) for x in section.end.coordinates)
+                start_x = start[0] if start[0] < end[0] else end[0]
+                end_x = end[0] if start[0] < end[0] else start[0]
+                if start[0] == end[0]:
+                    break
+
+                range_arr = range(start_x, end_x, 1)
+                for x1 in range_arr:
+                    y1 = section.get_y(x1)
+                    # TODO: it should never be none
+                    if y1 is not None:
+                        y1 = int(y1)
+                        p = Point([x1, y1])
+                        p = p.shift(x_shift, y_shift)
+                        p[1] = edge_detected_image.shape[1] - p[1]
+                        value = edge_detected_image[p[0], p[1]]
+                        quadrilateral_sum += value
+                        quadrilateral_points_n += 1
+
+            mean = quadrilateral_sum / quadrilateral_points_n if quadrilateral_points_n > 0 else 0
+
+            if quadrilateral_sum > biggest_quadrilateral["mean"]:
+                biggest_quadrilateral["mean"] = quadrilateral_sum
+                biggest_quadrilateral["quadrilateral"] = quadrilateral
+
+        return biggest_quadrilateral["quadrilateral"]
+
+
+    def draw_quadrilateral(self, image: numpy.ndarray, quadrilateral):
+        nd_quadrilateral = numpy.array(quadrilateral)
+        x_shift = int(image.shape[1] / 2)
+        y_shift = int(image.shape[0] / 2)
+        for x in numpy.ndindex(nd_quadrilateral.shape):
+            x = x[0]
+            start = list(int(x) for x in nd_quadrilateral[x].start.shift(x_shift, y_shift).coordinates)
+            start[1] = image.shape[0] - start[1]
+            end = list(int(x) for x in nd_quadrilateral[x].end.shift(x_shift, y_shift).coordinates)
+            end[1] = image.shape[0] - end[1]
+            r = random.randint(0, 254)
+            g = random.randint(0, 254)
+            b = random.randint(0, 254)
+            cv.line(image, tuple(start), tuple(end), (120, 0, 230))
+
 
 
 
