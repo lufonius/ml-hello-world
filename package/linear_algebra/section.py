@@ -6,6 +6,9 @@ from .utils import Utils
 import typing
 
 class Section(Line):
+    __start = None
+    __end = None
+
     def __init__(
             self,
             start: Point,
@@ -18,25 +21,27 @@ class Section(Line):
             line.x_shift,
             line.y_shift
         )
-        self.start = start
-        self.end = end
+        self.__start = start
+        self.__end = end
+
+    @property
+    def start(self) -> Point:
+        return self.__start
+
+    @start.setter
+    def start(self, value: Point) -> None:
+        self.__start = value
+
+    @property
+    def end(self) -> Point:
+        return self.__end
+
+    @end.setter
+    def end(self, value: Point) -> None:
+        self.__end = value
 
 
-    # when the x or the y value are not within the section, then None is returned
-    def get_y(self, x):
-        if not Utils.within_range(self.start[0], self.end[0], x):
-            return None
 
-        shift = (x - self.x_shift) + (self.y_shift * self.normal_vector[1])
-        nominator = (self.constant_term - self.normal_vector[0] * shift)
-        dominator = self.normal_vector[1]
-
-        y = nominator / dominator
-
-        if not Utils.within_range(self.start[1], self.end[1], y):
-            return None
-
-        return y
 
 
 

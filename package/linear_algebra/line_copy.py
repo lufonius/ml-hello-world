@@ -4,6 +4,7 @@ from .vector import Vector
 from .point import Point
 from .utils import Utils
 from enum import Enum
+import math
 
 getcontext().prec = 30
 
@@ -32,6 +33,12 @@ class IntersectionResult:
 
 class Line(object):
 
+    # Ax + By = k
+    # A = __normal_vector[0]
+    # B = __normal_vector[1]
+    # x = __direction_vector[0]
+    # y = __direction_vector[1]
+    # C = deltaX * B = __direction_vector[0] * __normal_vector[1]
     __dimension = None
     __normal_vector = None
     __constant_term = None
@@ -55,6 +62,14 @@ class Line(object):
 
         self.__set_basepoint()
         self.__set_direction_vector()
+
+    # here we can create a line with the slope intercept form
+    @classmethod
+    def from_slope_intercept(cls, delta_x: float, delta_y: float, y_intercept: float):
+        normal_vector = Vector([delta_y, -delta_x])
+        constant_term = delta_x * y_intercept
+        return cls(normal_vector, constant_term)
+
 
     def __hash__(self):
         return hash((
@@ -83,6 +98,26 @@ class Line(object):
         self.__constant_term = value
         self.__set_basepoint()
 
+    @property
+    def a(self):
+        return self.__normal_vector[0]
+
+    @property
+    def b(self):
+        return self.__normal_vector[1]
+
+    @property
+    def delta_x(self):
+        return self.__direction_vector[0]
+
+    @property
+    def delta_y(self):
+        return self.__direction_vector[1]
+
+    @property
+    def k(self):
+        return self.__constant_term
+
     def __set_basepoint(self):
         try:
             n = self.__normal_vector
@@ -101,6 +136,7 @@ class Line(object):
             else:
                 raise e
 
+    # the direction vector is perpendicular to the normal vector
     def __set_direction_vector(self):
         self.__direction_vector = Vector([-self.__normal_vector[1], self.__normal_vector[0]])
 
@@ -153,8 +189,17 @@ class Line(object):
         return Vector.are_parallel(self.__normal_vector, line.__normal_vector)
 
     def get_y(self, x) -> float:
-        # check if dominator is zero!
-        return (self.__constant_term - self.__normal_vector[0] * (x - self.x_shift) + (self.y_shift * self.__normal_vector[1])) / self.__normal_vector[1]
+        if self.b == 0:
+            return self.a
+
+        if self.a == 0:
+            return self.b
+
+        return (self.k - self.a * x + self.b) / self.b
+
+    @property
+    def slope(self):
+        return self.delta_y / self.delta_x
 
     def is_same_line(self, line: Line) -> bool:
         # we take vectors, as we need some vector calculation

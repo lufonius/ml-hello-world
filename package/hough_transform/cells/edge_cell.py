@@ -1,11 +1,18 @@
 from .cell import Cell
-from .position import POSITION
+from .position import get_position
 
 
 class EdgeCell(Cell):
-    position = None
 
-    def __init__(self, parent: Cell):
-        x = parent.x + POSITION[self.position][0]
-        y = parent.y + POSITION[self.position][1]
-        super().__init__(x, y, parent)
+    @property
+    def angle(self):
+        return self._parent.angle + get_position(self._parent._angle_step)[self.position][0]
+
+    @property
+    def p(self):
+        return self._parent.p + get_position(self._parent._angle_step)[self.position][1]
+
+    @property
+    def position(self):
+        raise NotImplementedError('this is an abstract class. please use one of the implementations')
+

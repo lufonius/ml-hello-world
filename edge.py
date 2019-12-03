@@ -1,18 +1,10 @@
 import cv2 as cv
-import numpy
-import unittest
-import numpy as np
-import plotly.plotly as py
-import plotly.graph_objs as go
-import plotly
-from cluster import Cluster
-from package.linear_algebra.vector import Vector
-from package.linear_algebra.line_copy import Line
-
 from package.hough_transform.hough import Hough
 from package.edge_detection.edge import EdgeDetector
-from package.utils.coordinate_space_converter import CoordinateSpaceConverter
-from package.utils.coordinate_space import CoordinateSpace
+from package.linear_algebra.line_copy import Line
+from package.hough_transform.cells.cell import Cell
+from package.linear_algebra.vector import Vector
+import numpy
 
 ## Create a display window
 kWinName = 'Holistically-Nested_Edge_Detection'
@@ -22,7 +14,7 @@ filepath = "receipt3.jpg"
 original = cv.imread(filepath)
 
 height, width = original.shape[:2]
-new_width = 300
+new_width = 200
 new_height = int(height / (width / new_width))
 
 original = cv.resize(original, (new_width, new_height))
@@ -36,9 +28,17 @@ edge_detector = EdgeDetector(
 out = edge_detector.detect_edges(filepath)
 
 hough = Hough()
-transformed = hough.transform(out)
-maximas = hough.get_local_maximas(transformed)
-# transformed = hough.mark_maximas(transformed, maximas)
+accumulator = hough.transform(out, 2)
+# accumulator_image = accumulator.to_image()
+maximas = hough.get_local_maximas(accumulator)
+'''
+maximas = {}
+maxima = Cell()
+maxima.p = -12.0
+maxima.angle = 358.0
+
+maximas[hash(maxima)] = maxima'''
+
 lines = hough.to_lines(maximas)
 '''lines = [
     Line(Vector([31.98, 1.16]), 1024),
@@ -46,10 +46,10 @@ lines = hough.to_lines(maximas)
     Line(Vector([-25, 0.01]), 625),
     Line(Vector([-6, -85.8]), 7396)
 ]'''
-#original_with_lines = hough.draw_onto_image(np.array(lines), original)
+original_with_lines = hough.draw_onto_image(lines, original)
 quadrilaterals = hough.get_quadrilaterals(original, lines)
 quadrilateral = hough.most_likely_quadrilateral(out, quadrilaterals)
-hough.draw_quadrilateral(original, quadrilateral)
+hough.draw_quadrilaterals(original, [quadrilateral])
 
 cv.imshow(kWinName, original)
 cv.waitKey()

@@ -8,8 +8,8 @@ from .system import System
 # TODO: Use DI here to create a singleton system object
 class Vector(Point):
 
-    def __init__(self, coordinates: typing.List[float], system: System = System()):
-        Point.__init__(self, coordinates, system)
+    def __init__(self, coordinates: typing.List[float]):
+        Point.__init__(self, coordinates)
         self.type = 'Vector'
 
     def __eq__(self, v):

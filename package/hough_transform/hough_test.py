@@ -1,6 +1,5 @@
 import unittest
-import numpy
-import math
+from package.hough_transform.cells.cell import Cell
 from .hough import Hough
 
 class HoughTest(unittest.TestCase):
@@ -9,34 +8,19 @@ class HoughTest(unittest.TestCase):
     def setUp(self):
         self.hough = Hough()
 
-    def test_create_empty_parameter_matrice(self):
-        image_width = 50
-        image_height = 80
-        expected_p_size = math.ceil(math.sqrt(image_height**2 + image_width**2))
-        expected_angle_size = 360 / self.hough.angle_range["step"]
-        image = numpy.ndarray((image_width, image_height))
+    def test_to_lines(self):
+        maximas = {}
 
-        empty_parameter_matrice = self.hough.create_empty_parameter_matrice(image)
+        maxima = Cell()
+        maxima.p = -92.0
+        maxima.angle = 0.0
 
-        zero_array = numpy.unique(empty_parameter_matrice)
-        self.assertEqual(0, zero_array[0], "not zero - empty parameter space does not consist of only zeros")
-        self.assertEqual(1, zero_array.size, "array size not equals one - empty parameter space does not consist of only zeros")
+        maximas[hash(maxima)] = maxima
 
-        actual_p_axis_size = empty_parameter_matrice[0, :].size
-        actual_angle_axis_size = empty_parameter_matrice[:, 0].size
-        self.assertEqual(expected_p_size, actual_p_axis_size, "p axis size is not created properly")
-        self.assertEqual(expected_angle_size, actual_angle_axis_size, "angle axis size is not created properly")
+        lines = self.hough.to_lines(maximas)
+        assert lines[0].normal_vector[0] == -92
+        assert lines[0].constant_term == 8464
 
-    def test_convert_to_grayscale_parameter_matrice(self):
-        parameter_matrice = numpy.array([
-            [1, 2, 1],
-            [2, 1, 1]
-        ])
 
-        expected = numpy.array([
-            [127, 255, 127],
-            [255, 127, 127]
-        ])
-        actual = self.hough._convert_to_grayscale_parameter_matrice(parameter_matrice)
-        numpy.testing.assert_array_equal(expected, actual, "parameter matrice wasn't converted to grayscale parameter matrice properly")
+
 

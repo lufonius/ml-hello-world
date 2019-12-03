@@ -11,14 +11,15 @@ class Position(Enum):
     LEFT = 7,
     MIDDLE = 8
 
-POSITION = {
-    Position.TOP_LEFT: (-1, 1),
-    Position.TOP: (0, 1),
-    Position.TOP_RIGHT: (1, 1),
-    Position.RIGHT: (1,0),
-    Position.BOTTOM_RIGHT: (1, -1),
-    Position.BOTTOM: (0, -1),
-    Position.BOTTOM_LEFT: (-1, -1),
-    Position.LEFT: (-1, 0)
-}
+def get_position(angle_step: int):
+    return {
+        Position.TOP_LEFT: (-angle_step, 1),
+        Position.TOP: (0, 1),
+        Position.TOP_RIGHT: (angle_step, 1),
+        Position.RIGHT: (angle_step,0),
+        Position.BOTTOM_RIGHT: (angle_step, -1),
+        Position.BOTTOM: (0, -1),
+        Position.BOTTOM_LEFT: (-angle_step, -1),
+        Position.LEFT: (-angle_step, 0)
+    }
 

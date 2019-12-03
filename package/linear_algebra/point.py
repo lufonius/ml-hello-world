@@ -5,20 +5,11 @@ import typing
 
 
 class Point():
-    def __init__(self, coordinates: typing.List[float], system: System = System()):
+    def __init__(self, coordinates: typing.List[float]):
         self.round = 3
-        self.system = system
         self.type = 'Point'
-        try:
-            if not coordinates:
-                raise ValueError
-            else:
-                self.coordinates = list(coordinates)
-                self.dimension = len(coordinates)
-        except ValueError:
-            raise ValueError('wrong value')
-        except TypeError:
-            raise TypeError('coordinates is of wrong type')
+        self.coordinates = list(coordinates)
+        self.dimension = len(coordinates)
 
     def __str__(self):
         return '{0} {1}'.format(self.type, [round(x, self.round) for x in self.coordinates])
@@ -35,6 +26,14 @@ class Point():
 
     def shift(self, x: int, y: int):
         return Point([self.coordinates[0] + x, self.coordinates[1] + y])
+
+    @property
+    def x(self):
+        return self[0]
+
+    @property
+    def y(self):
+        return self[1]
 
 
     @staticmethod

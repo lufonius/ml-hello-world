@@ -1,34 +1,23 @@
 from __future__ import annotations
-import typing
 
 
 class Cell:
-    value = None
+    angle = 0
+    p = 0
 
-    def __init__(self, x: int, y: int, parent: Cell = None):
-        self._x = x
-        self._y = y
-
+    def __init__(self, parent: Cell = None):
+        self._angle_step = 1
         self._parent = parent
-
-        # future implementation ... replace with array
         self.votes = 0
 
-        self.children = []
-
     def __hash__(self):
-        return hash((self._x, self._y))
+        return hash((self.angle, self.p))
 
     def __eq__(self, other: Cell):
         return hash(self) == hash(other)
 
-    @property
-    def x(self):
-        return self._x
-
-    @property
-    def y(self):
-        return self._y
+    def vote(self):
+        self.votes += 1
 
     @property
     def level(self):
@@ -36,14 +25,24 @@ class Cell:
             return 1
         return self._parent.level + 1
 
-    def get_cells_till_level(self, level: int, cells: typing.List[Cell]):
+    @property
+    def children(self):
+        return []
+
+    def get_surrounding_cells(self, level: int, p_axis_size: int):
+        map = {}
+        for cell in self.__get_surrounding_cells(level, p_axis_size):
+            map[hash(cell)] = cell
+
+        # del map[hash(self)]
+        return map
+
+    def __get_surrounding_cells(self, level: int, p_axis_size: int):
         if self.level <= level:
-            self.grow_leafes()
             for child in self.children:
-                cells.append(child)
-                child.get_cells_till_level(level, cells)
-
-    def grow_leafes(self):
-        pass
-
-
+                child.__get_surrounding_cells(level, p_axis_size)
+                if not child.angle > 360 \
+                        or not child.p > p_axis_size \
+                        or not child.angle <= 0 \
+                        or not child.p <= 0:
+                    yield child

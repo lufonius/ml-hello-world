@@ -1,3 +1,4 @@
+from __future__ import annotations
 from .cell import Cell
 from .bottom_left_cell import BottomLeftCell
 from .bottom_cell import BottomCell
@@ -11,17 +12,13 @@ from .right_cell import RightCell
 
 class RootCell(Cell):
 
-    def __init__(self, x: int, y: int):
-        super().__init__(x, y)
-
-    def grow_leafes(self):
-        self.children = [
-            TopLeftCell(self),
-            TopCell(self),
-            TopRightCell(self),
-            RightCell(self),
-            BottomRightCell(self),
-            BottomCell(self),
-            BottomLeftCell(self),
-            LeftCell(self)
-        ]
+    @property
+    def children(self):
+        yield TopLeftCell(self)
+        yield TopCell(self)
+        yield TopRightCell(self)
+        yield RightCell(self)
+        yield BottomRightCell(self)
+        yield BottomCell(self)
+        yield BottomLeftCell(self)
+        yield LeftCell(self)
